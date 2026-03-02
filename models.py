@@ -16,3 +16,23 @@ class User(Base):
 
     def __repr__(self):
         return str(self)
+#
+#
+# class Document(Base):
+#     pass
+#
+#
+# class DocumentChunk(Base):
+#     pass
+#
+#
+# class Embedding(Base):
+#     pass
+#
+#
+# class QueryHistory(Base):
+#     pass
+#
+#
+# class SubscriptionPlan(Base):
+#     pass
