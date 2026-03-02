@@ -5,8 +5,13 @@ from datetime import date
 
 from fastapi import FastAPI, HTTPException, Path, Query, Body, Depends, Response, Request
 from typing import Optional
+from sqlalchemy import select
 
 from dotenv import load_dotenv
+
+from database import async_session_maker, Base, engine
+from schemas import UserCreate
+from models import User
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -30,7 +35,10 @@ async def on_startup():
             "content": {
                 "application/json": {
                     "example": {
-                        'success': True, 'id': 0
+                        "success": True,
+                        "id": 0,
+                        "username": "USERNAME",
+                        "tg_id": "0000000"
                     }
                 }
             }
@@ -48,22 +56,33 @@ async def on_startup():
     },
     status_code=201,
 )
-async def customer_create(
-        username: str = Query(..., description="Имя пользователя", examples="Иван"),
-        birthday: Optional[date] = Query(None, description="Дата рождения в формате ГГГГ-ММ-ДД", examples="2023-01-01"),
-        sex: Optional[str] = Query(None, description="Пол (выбор между male/female).", examples="male"),
-        number: str = Query(..., description="Номер телефона", examples="+375291234567"),
-):
-    if birthday:
-        birthday =  birthday.isoformat()
-    else:
-        birthday = None
+async def user_create(user: UserCreate):
+    async with async_session_maker() as session:
+        # Проверяем, существует ли пользователь
+        result = await session.execute(
+            select(User).where(User.tg_id == user.tg_id)
+        )
+        existing_user = result.scalar_one_or_none()
 
-    data = {
-        'username': username,
-        'birthday': birthday,
-        'sex': sex,
-        'phone_number': number,
+        if existing_user:
+            raise HTTPException(
+                status_code=400,
+                detail="Пользователь уже существует"
+            )
+
+        new_user = User(
+            username=user.username,
+            tg_id=user.tg_id
+        )
+
+        session.add(new_user)
+        await session.commit()
+        await session.refresh(new_user)
+    return {
+        "success": True,
+        "id": new_user.id,
+        "username": new_user.username,
+        "tg_id": new_user.tg_id
     }
 
-    return data
+
