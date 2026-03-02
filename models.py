@@ -6,10 +6,8 @@ from datetime import date
 
 class User(Base):
     id: Mapped[int_pk]
+    tg_id: Mapped[str_uniq]
     username: Mapped[str]
-    phone_number: Mapped[str_uniq]
-    date_of_birth: Mapped[date]
-    sex: Mapped[str]
 
     def __str__(self):
         return (f"{self.__class__.__name__}(id={self.id}, "
