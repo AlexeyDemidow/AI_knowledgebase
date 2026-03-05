@@ -1,7 +1,7 @@
 from sqlalchemy import ForeignKey, text, Text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from database import Base, str_uniq, int_pk, str_null_true
-from datetime import date
+from datetime import date, datetime
 
 
 class User(Base):
