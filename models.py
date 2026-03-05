@@ -20,6 +20,31 @@ class User(Base):
 
     def __repr__(self):
         return str(self)
+
+
+class Dialog(Base):
+    __tablename__ = "dialogs"
+    id: Mapped[int_pk]
+
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime]
+
+    user: Mapped["User"] = relationship(back_populates="dialogs")
+    messages: Mapped[list["Message"]] = relationship(back_populates="dialog")
+
+
+class Message(Base):
+    __tablename__ = "messages"
+    id: Mapped[int_pk]
+
+    dialog_id: Mapped[int] = mapped_column(ForeignKey("dialogs.id"))
+
+    role: Mapped[str]
+    text: Mapped[str]
+
+    created_at: Mapped[datetime]
+
+    dialog: Mapped["Dialog"] = relationship(back_populates="messages")
 #
 #
 # class Document(Base):
