@@ -5,9 +5,13 @@ from datetime import date
 
 
 class User(Base):
+    __tablename__ = "users"
     id: Mapped[int_pk]
     tg_id: Mapped[str_uniq]
     username: Mapped[str]
+    created_at: Mapped[datetime]
+
+    dialogs: Mapped[list["Dialog"]] = relationship(back_populates="user")
 
     def __str__(self):
         return (f"{self.__class__.__name__}(id={self.id}, "
