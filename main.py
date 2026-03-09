@@ -2,10 +2,12 @@ import os
 from os.path import join, dirname
 import json
 from datetime import date, datetime, timezone
+import uuid
 
-from fastapi import FastAPI, HTTPException, Path, Query, Body, Depends, Response, Request
+from fastapi import FastAPI, HTTPException, Path, Query, Body, Depends, Response, Request, UploadFile, File, Form
 from typing import Optional
 from sqlalchemy import select
+import aiofiles
 
 from dotenv import load_dotenv
 from sqlalchemy.sql.functions import user
@@ -13,7 +15,7 @@ from sqlalchemy.sql.functions import user
 from database import async_session_maker, Base, engine
 from llm_service import ask_bot
 from schemas import UserCreate, ChatRequest
-from models import User, Message, Dialog
+from models import User, Message, Dialog, Document
 
 dotenv_path = join(dirname(__file__), '.env')
 load_dotenv(dotenv_path)
@@ -136,7 +138,6 @@ async def chat(data: ChatRequest):
             user = User(
                 tg_id=data.tg_id,
                 username=data.username,
-                created_at=datetime.utcnow()
             )
             session.add(user)
             await session.flush()
@@ -154,7 +155,6 @@ async def chat(data: ChatRequest):
         if not dialog:
             dialog = Dialog(
                 user_id=user.id,
-                created_at=datetime.utcnow()
             )
             session.add(dialog)
             await session.flush()
@@ -164,7 +164,6 @@ async def chat(data: ChatRequest):
             dialog_id=dialog.id,
             role="user",
             text=data.message,
-            created_at=datetime.utcnow()
         )
 
         session.add(user_message)
@@ -199,7 +198,6 @@ async def chat(data: ChatRequest):
             dialog_id=dialog.id,
             role="assistant",
             text=llm_answer,
-            created_at=datetime.utcnow()
         )
 
         session.add(assistant_message)
@@ -216,3 +214,90 @@ async def chat(data: ChatRequest):
         }
 
 
+
+documents_folder = "documents/"
+os.makedirs(documents_folder, exist_ok=True)
+
+
+@app.post("/add_document/")
+async def add_document(
+        tg_id: str = Form(...),
+        username: str = Form(...),
+        file: UploadFile = File(...)
+):
+
+    async with async_session_maker() as session:
+        try:
+            unique_name = f"{uuid.uuid4()}_{file.filename}"
+            file_path = os.path.join(documents_folder, unique_name)
+
+            if os.path.exists(file_path):
+                raise ValueError("Файл уже существует")
+
+            allowed = {"pdf", "docx", "txt"}
+
+            ext = file.filename.split(".")[-1].lower()
+
+            if ext not in allowed:
+                raise ValueError("Неподдерживаемый формат файла")
+
+            # сохраняем файл
+            async with aiofiles.open(file_path, "wb") as buffer:
+                content = await file.read()
+                await buffer.write(content)
+
+            file_size = os.path.getsize(file_path)
+
+            # пользователь
+            result = await session.execute(
+                select(User).where(User.tg_id == tg_id)
+            )
+            user = result.scalar_one_or_none()
+
+            if not user:
+                user = User(tg_id=tg_id, username=username)
+                session.add(user)
+                await session.flush()
+
+            # диалог
+            result = await session.execute(
+                select(Dialog)
+                .where(Dialog.user_id == user.id)
+                .order_by(Dialog.created_at.desc())
+                .limit(1)
+            )
+            dialog = result.scalar_one_or_none()
+
+            if not dialog:
+                dialog = Dialog(user_id=user.id)
+                session.add(dialog)
+                await session.flush()
+
+            # документ
+            doc = Document(
+                filename=file.filename,
+                file_path=file_path,
+                file_size=file_size,
+                dialog_id=dialog.id
+            )
+
+            session.add(doc)
+            await session.commit()
+            await session.refresh(doc)
+
+            return {
+                "success": True,
+                "id": doc.id,
+                "filename": doc.filename,
+                "file_path": doc.file_path,
+                "file_size": doc.file_size,
+                "dialog_id": doc.dialog_id,
+                "created_at": doc.created_at
+            }
+
+        except Exception as e:
+            await session.rollback()
+            return {
+                "success": False,
+                "errorMsg": str(e)
+            }
