@@ -30,7 +30,8 @@ class Dialog(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     user: Mapped["User"] = relationship(back_populates="dialogs")
-    messages: Mapped[list["Message"]] = relationship(back_populates="dialog")
+    messages: Mapped[list["Message"]] = relationship(back_populates="dialog", cascade="all, delete-orphan")
+    documents: Mapped[list["Document"]] = relationship(back_populates="dialog", cascade="all, delete-orphan")
 
 
 class Message(Base):
