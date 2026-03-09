@@ -9,7 +9,7 @@ class User(Base):
     id: Mapped[int_pk]
     tg_id: Mapped[str_uniq]
     username: Mapped[str]
-    created_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     dialogs: Mapped[list["Dialog"]] = relationship(back_populates="user")
 
@@ -27,7 +27,7 @@ class Dialog(Base):
     id: Mapped[int_pk]
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    created_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     user: Mapped["User"] = relationship(back_populates="dialogs")
     messages: Mapped[list["Message"]] = relationship(back_populates="dialog")
@@ -42,7 +42,7 @@ class Message(Base):
     role: Mapped[str]
     text: Mapped[str]
 
-    created_at: Mapped[datetime]
+    created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     dialog: Mapped["Dialog"] = relationship(back_populates="messages")
 #
