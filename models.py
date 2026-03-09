@@ -46,12 +46,22 @@ class Message(Base):
     created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     dialog: Mapped["Dialog"] = relationship(back_populates="messages")
-#
-#
-# class Document(Base):
-#     pass
-#
-#
+
+
+class Document(Base):
+    __tablename__ = "documents"
+    id: Mapped[int_pk]
+    dialog_id: Mapped[int] = mapped_column(ForeignKey("dialogs.id"))
+
+    filename: Mapped[str]
+    file_path: Mapped[str]
+    file_size: Mapped[int]
+
+    created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
+
+    dialog: Mapped["Dialog"] = relationship(back_populates="documents")
+
+
 # class DocumentChunk(Base):
 #     pass
 #
