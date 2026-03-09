@@ -41,7 +41,7 @@ class Message(Base):
     dialog_id: Mapped[int] = mapped_column(ForeignKey("dialogs.id"))
 
     role: Mapped[str]
-    text: Mapped[str]
+    text: Mapped[str] = mapped_column(Text)
 
     created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
