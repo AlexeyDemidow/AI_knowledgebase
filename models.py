@@ -1,5 +1,6 @@
 from sqlalchemy import ForeignKey, text as sql_text, Text
 from sqlalchemy.orm import relationship, Mapped, mapped_column
+from pgvector.sqlalchemy import Vector
 from database import Base, str_uniq, int_pk, str_null_true
 from datetime import date, datetime
 
