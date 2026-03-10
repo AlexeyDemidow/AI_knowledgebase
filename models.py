@@ -63,13 +63,6 @@ class Document(Base):
     dialog: Mapped["Dialog"] = relationship(back_populates="documents")
 
 
-# class DocumentChunk(Base):
-#     pass
-#
-#
-# class Embedding(Base):
-#     pass
-#
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
 
@@ -79,6 +72,14 @@ class DocumentChunk(Base):
     text: Mapped[str]
     chunk_index: Mapped[int]
 
+
+class Embedding(Base):
+    __tablename__ = "embeddings"
+
+    id: Mapped[int_pk]
+    chunk_id: Mapped[int] = mapped_column(ForeignKey("document_chunks.id"))
+
+    vector: Mapped[list[float]] = mapped_column(Vector(384))
 #
 # class QueryHistory(Base):
 #     pass
