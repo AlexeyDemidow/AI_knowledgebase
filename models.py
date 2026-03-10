@@ -70,6 +70,15 @@ class Document(Base):
 # class Embedding(Base):
 #     pass
 #
+class DocumentChunk(Base):
+    __tablename__ = "document_chunks"
+
+    id: Mapped[int_pk]
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id"))
+
+    text: Mapped[str]
+    chunk_index: Mapped[int]
+
 #
 # class QueryHistory(Base):
 #     pass
