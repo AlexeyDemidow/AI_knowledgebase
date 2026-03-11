@@ -1,24 +1,18 @@
 import os
 from os.path import join, dirname
-import json
-from datetime import date, datetime, timezone
 import uuid
+from datetime import datetime
 
-from fastapi import FastAPI, HTTPException, Path, Query, Body, Depends, Response, Request, UploadFile, File, Form
-from typing import Optional
+from fastapi import FastAPI, HTTPException, Form, UploadFile, File
 from sqlalchemy import select
 import aiofiles
+import numpy as np
 
-from dotenv import load_dotenv
-from sqlalchemy.sql.functions import user
-
-from database import async_session_maker, Base, engine
+from database import async_session_maker
 from llm_service import ask_bot
-from schemas import UserCreate, ChatRequest
-from models import User, Message, Dialog, Document
-
-dotenv_path = join(dirname(__file__), '.env')
-load_dotenv(dotenv_path)
+from models import User, Dialog, Message, Document, DocumentChunk, Embedding
+from utils import extract_text, split_text
+from sentence_transformers import SentenceTransformer
 
 app = FastAPI()
 
