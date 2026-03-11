@@ -218,6 +218,10 @@ async def load_model():
     model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
+def create_embedding(text: str):
+    return model.encode(text).tolist()
+
+
 @app.post("/add_document/")
 async def add_document(
         tg_id: str = Form(...),
