@@ -322,7 +322,97 @@ async def add_document(
 
         except Exception as e:
             await session.rollback()
-            return {
-                "success": False,
-                "errorMsg": str(e)
-            }
+            return {"success": False, "errorMsg": str(e)}
+
+
+@app.post("/chat/")
+async def chat(data: dict):
+    tg_id = data.get("tg_id")
+    username = data.get("username")
+    message_text = data.get("message")
+    chat_mode = data.get("chat_mode", "chat")
+
+    async with async_session_maker() as session:
+        # 1️⃣ Получаем пользователя
+        result = await session.execute(select(User).where(User.tg_id == tg_id))
+        user = result.scalar_one_or_none()
+        if not user:
+            user = User(tg_id=tg_id, username=username)
+            session.add(user)
+            await session.flush()
+
+        # 2️⃣ Получаем или создаем диалог
+        result = await session.execute(
+            select(Dialog)
+            .where(Dialog.user_id == user.id)
+            .order_by(Dialog.created_at.desc())
+            .limit(1)
+        )
+        dialog = result.scalar_one_or_none()
+        if not dialog:
+            dialog = Dialog(user_id=user.id)
+            session.add(dialog)
+            await session.flush()
+
+        # 3️⃣ Сохраняем сообщение пользователя
+        user_message = Message(dialog_id=dialog.id, role="user", text=message_text)
+        session.add(user_message)
+        await session.flush()
+
+        if chat_mode == "document":
+            query_embedding = create_embedding(message_text)
+
+            # получаем все chunks и их embeddings
+            result = await session.execute(
+                select(DocumentChunk.text, Embedding.vector)
+                .join(Embedding, Embedding.chunk_id == DocumentChunk.id)
+                .join(Document, Document.id == DocumentChunk.document_id)
+                .where(Document.dialog_id == dialog.id)
+            )
+            chunks_vectors = result.all()
+
+            # считаем cosine similarity
+            def cosine_sim(a, b):
+                a, b = np.array(a), np.array(b)
+                return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+
+            scored_chunks = [
+                (text, cosine_sim(vector, query_embedding))
+                for text, vector in chunks_vectors
+            ]
+            # берём top-5
+            top_chunks = [text for text, _ in sorted(scored_chunks, key=lambda x: x[1], reverse=True)[:5]]
+            context = "\n\n".join(top_chunks)
+
+            # формируем prompt для модели
+            messages = [
+                {"role": "system", "content": f"You are helpful assistant. Use the following context:\n{context}"},
+                {"role": "user", "content": message_text},
+            ]
+
+        else:
+            result = await session.execute(
+                select(Message.role, Message.text)
+                .where(Message.dialog_id == dialog.id)
+                .order_by(Message.created_at.desc())
+                .limit(20)
+            )
+            history = result.all()
+            messages = [{"role": role, "content": text} for role, text in reversed(history)]
+            messages.insert(0, {"role": "system", "content": "You are helpful assistant."})
+
+        llm_answer = await ask_bot(messages)  # ask_bot должна возвращать строку
+
+        # сохраняем ответ
+        assistant_message = Message(dialog_id=dialog.id, role="assistant", text=llm_answer)
+        session.add(assistant_message)
+        await session.commit()
+
+        return {
+            "success": True,
+            "user_id": user.id,
+            "dialog_id": dialog.id,
+            "mode": chat_mode,
+            "question": message_text,
+            "answer": llm_answer,
+        }
