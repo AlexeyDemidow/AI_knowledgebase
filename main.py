@@ -218,6 +218,11 @@ async def chat(data: ChatRequest):
 documents_folder = "documents/"
 os.makedirs(documents_folder, exist_ok=True)
 
+@app.on_event("startup")
+async def load_model():
+    global model
+    model = SentenceTransformer("all-MiniLM-L6-v2")
+
 
 @app.post("/add_document/")
 async def add_document(
