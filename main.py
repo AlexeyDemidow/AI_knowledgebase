@@ -288,6 +288,28 @@ async def add_document(
             await session.commit()
             await session.refresh(doc)
 
+            # 5️⃣ Извлекаем текст и создаем chunks + embeddings
+            text = extract_text(file_path)
+            chunks = split_text(text)
+
+            for i, chunk in enumerate(chunks):
+                doc_chunk = DocumentChunk(
+                    document_id=doc.id,
+                    text=chunk,
+                    chunk_index=i,
+                )
+                session.add(doc_chunk)
+                await session.flush()
+
+                vector = create_embedding(chunk)
+                embedding = Embedding(
+                    chunk_id=doc_chunk.id,
+                    vector=vector,
+                )
+                session.add(embedding)
+
+            await session.commit()
+
             return {
                 "success": True,
                 "id": doc.id,
