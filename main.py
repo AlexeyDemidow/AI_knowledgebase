@@ -11,7 +11,7 @@ import numpy as np
 from database import async_session_maker
 from llm_service import ask_bot
 from models import User, Dialog, Message, Document, DocumentChunk, Embedding
-from utils import extract_text, split_text
+from utils import extract_text, split_text, create_embedding
 from sentence_transformers import SentenceTransformer
 
 app = FastAPI()
@@ -23,10 +23,6 @@ os.makedirs(documents_folder, exist_ok=True)
 async def load_model():
     global model
     model = SentenceTransformer("all-MiniLM-L6-v2")
-
-
-def create_embedding(text: str):
-    return model.encode(text).tolist()
 
 
 @app.post("/add_document/")
@@ -172,7 +168,6 @@ async def chat(data: dict):
             # берём top-5
             top_chunks = [text for text, _ in sorted(scored_chunks, key=lambda x: x[1], reverse=True)[:5]]
             context = "\n\n".join(top_chunks)
-
             # формируем prompt для модели
             messages = [
                 {"role": "system", "content": f"You are helpful assistant. Use the following context:\n{context}"},
@@ -197,7 +192,7 @@ async def chat(data: dict):
         session.add(assistant_message)
         await session.commit()
 
-        return {
+        result = {
             "success": True,
             "user_id": user.id,
             "dialog_id": dialog.id,
@@ -205,3 +200,4 @@ async def chat(data: dict):
             "question": message_text,
             "answer": llm_answer,
         }
+        return result
