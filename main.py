@@ -165,9 +165,8 @@ async def chat(data: dict):
                 (text, cosine_sim(vector, query_embedding))
                 for text, vector in chunks_vectors
             ]
-            # берём top-5
-            top_chunks = [text for text, _ in sorted(scored_chunks, key=lambda x: x[1], reverse=True)[:5]]
-            context = "\n\n".join(top_chunks)
+            top_chunks = [text for text, _ in sorted(scored_chunks, key=lambda x: x[1], reverse=True)[:3]]
+            context = "\n\n".join(top_chunks)[:3000]
             # формируем prompt для модели
             messages = [
                 {"role": "system", "content": f"You are helpful assistant. Use the following context:\n{context}"},
