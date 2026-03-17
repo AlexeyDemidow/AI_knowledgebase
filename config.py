@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     HF_TOKEN: str
+    OPEN_ROUTER_TOKEN: str
     model_config = SettingsConfigDict(env_file=".env")
 
 
