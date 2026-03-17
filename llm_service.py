@@ -13,7 +13,8 @@ headers = {
 async def ask_bot(messages: list):
     payload = {
         "model": "minimax/minimax-m2.5",
-        "messages": messages
+        "messages": messages,
+        "max_tokens": 500
     }
 
     async with aiohttp.ClientSession() as session:
@@ -24,7 +25,7 @@ async def ask_bot(messages: list):
     if "choices" in result and len(result["choices"]) > 0:
         return result["choices"][0]["message"]["content"]
     elif "error" in result:
-        # Если Hugging Face вернул ошибку
+        # Если вернул ошибку
         raise Exception(f"LLM Error: {result['error']}")
     else:
         # Логируем весь результат для отладки
