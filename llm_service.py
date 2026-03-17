@@ -4,15 +4,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-API_URL = "https://router.huggingface.co/v1/chat/completions"
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 headers = {
-    "Authorization": f"Bearer {os.getenv('HF_TOKEN')}",
+    "Authorization": f"Bearer {os.getenv('OPEN_ROUTER_TOKEN')}",
 }
 
 async def ask_bot(messages: list):
     payload = {
-        "model": "Qwen/Qwen3.5-35B-A3B:novita",
+        "model": "minimax/minimax-m2.5",
         "messages": messages
     }
 
