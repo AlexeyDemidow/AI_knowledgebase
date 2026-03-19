@@ -10,7 +10,7 @@ import aiofiles
 import numpy as np
 
 from database import async_session_maker
-from llm_service import ask_bot
+from llm_service import ask_bot, translate_to_en
 from models import User, Dialog, Message, Document, DocumentChunk, Embedding
 from utils import extract_text, split_text, create_embedding
 from sentence_transformers import SentenceTransformer
@@ -160,7 +160,8 @@ async def chat(data: dict):
         await session.flush()
 
         if chat_mode == "document":
-            query_embedding = create_embedding(message_text)
+            message_text_en = await translate_to_en(message_text)
+            query_embedding = create_embedding(message_text_en)
 
             # получаем все chunks и их embeddings
             result = await session.execute(
