@@ -185,7 +185,18 @@ async def chat(data: dict):
             context = "\n\n".join(top_chunks)[:3000]
             # формируем prompt для модели
             messages = [
-                {"role": "system", "content": f"You are helpful assistant. Use the following context:\n{context}"},
+                {
+                    "role": "system",
+                    "content": f"""
+                    Ответь строго:
+
+                    1. Ответ на русском языке
+                    2. Источник (из контекста)
+
+                    Если нет ответа — напиши "Нет данных"
+                    Используй предоставленные контекст: {context}
+                    """
+                },
                 {"role": "user", "content": message_text},
             ]
 
