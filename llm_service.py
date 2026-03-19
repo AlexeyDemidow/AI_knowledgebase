@@ -33,3 +33,12 @@ async def ask_bot(messages: list):
         # Логируем весь результат для отладки
         print("Unexpected response from HF API:", result)
         raise Exception("Unexpected response format from Hugging Face API")
+
+
+async def translate_to_en(text: str):
+    messages = [
+        {"role": "system", "content": "Translate to English"},
+        {"role": "user", "content": text}
+    ]
+
+    return await ask_bot(messages)
