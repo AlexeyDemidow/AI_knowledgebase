@@ -214,3 +214,54 @@ async def chat(data: dict):
             "answer": llm_answer,
         }
         return result
+
+
+@app.get("/show_docs/")
+async def show_docs(tg_id: str = Query(...), username: str = Query(None)):
+    async with async_session_maker() as session:
+        # 1️⃣ Получаем пользователя
+        result = await session.execute(select(User).where(User.tg_id == tg_id))
+        user = result.scalar_one_or_none()
+
+        if not user:
+            user = User(tg_id=tg_id, username=username)
+            session.add(user)
+            await session.flush()
+
+        # 2️⃣ Получаем или создаем диалог
+        result = await session.execute(
+            select(Dialog)
+            .where(Dialog.user_id == user.id)
+            .order_by(Dialog.created_at.desc())
+            .limit(1)
+        )
+        dialog = result.scalar_one_or_none()
+
+        if not dialog:
+            dialog = Dialog(user_id=user.id)
+            session.add(dialog)
+            await session.flush()
+
+        # 3️⃣ Получаем документы
+        docs_result = await session.execute(
+            select(Document)
+            .where(Document.dialog_id == dialog.id)
+            .order_by(Document.created_at.desc())
+        )
+
+        documents = docs_result.scalars().all()
+
+        return {
+            "success": True,
+            "user_id": user.id,
+            "dialog_id": dialog.id,
+            "docs": [
+                {
+                    "id": doc.id,
+                    "name": doc.filename,
+                    # "text": doc.text,
+                    "created_at": doc.created_at
+                }
+                for doc in documents
+            ]
+        }
