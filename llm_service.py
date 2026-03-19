@@ -12,9 +12,11 @@ headers = {
 
 async def ask_bot(messages: list):
     payload = {
-        "model": "minimax/minimax-m2.5",
+        "model": "stepfun/step-3.5-flash:free",
         "messages": messages,
-        "max_tokens": 500
+        "max_tokens": 500,
+        # "temperature": 0.3,
+
     }
 
     async with aiohttp.ClientSession() as session:
