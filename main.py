@@ -14,15 +14,29 @@ from models import User, Dialog, Message, Document, DocumentChunk, Embedding
 from utils import extract_text, split_text, create_embedding
 from sentence_transformers import SentenceTransformer
 
-app = FastAPI()
+# app = FastAPI()
 
 documents_folder = "documents/"
 os.makedirs(documents_folder, exist_ok=True)
 
-@app.on_event("startup")
-async def load_model():
-    global model
-    model = SentenceTransformer("all-MiniLM-L6-v2")
+# @app.on_event("startup")
+# async def load_model():
+#     global model
+#     model = SentenceTransformer("all-MiniLM-L6-v2")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    print("Loading model...")
+
+    app.state.model = SentenceTransformer("all-MiniLM-L6-v2")
+
+    yield
+
+    print("Shutting down...")
+
+
+app = FastAPI(lifespan=lifespan)
 
 
 @app.post("/add_document/")
