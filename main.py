@@ -230,7 +230,10 @@ async def chat(data: dict):
 
 
 @app.get("/show_docs/")
-async def show_docs(tg_id: str = Query(...), username: str = Query(None)):
+async def show_docs(
+        tg_id: str = Query(...),
+        username: str = Query(None)
+):
     async with async_session_maker() as session:
         # 1️⃣ Получаем пользователя
         result = await session.execute(select(User).where(User.tg_id == tg_id))
