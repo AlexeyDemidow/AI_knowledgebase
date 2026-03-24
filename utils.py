@@ -2,6 +2,9 @@ from pypdf import PdfReader
 from docx import Document as DocxDocument
 
 from sentence_transformers import SentenceTransformer
+from sqlalchemy import select
+
+from models import Dialog, User
 
 
 def extract_text(file_path: str) -> str:
@@ -34,3 +37,27 @@ model = SentenceTransformer("all-MiniLM-L6-v2")
 
 def create_embedding(text):
     return model.encode(text).tolist()
+
+
+async def get_user_chat(session, tg_id, username):
+    result = await session.execute(select(User).where(User.tg_id == tg_id))
+    user = result.scalar_one_or_none()
+    if not user:
+        user = User(tg_id=tg_id, username=username)
+        session.add(user)
+        await session.flush()
+
+    # 3️⃣ Получаем диалог
+    result = await session.execute(
+        select(Dialog)
+        .where(Dialog.user_id == user.id)
+        .order_by(Dialog.created_at.desc())
+        .limit(1)
+    )
+    dialog = result.scalar_one_or_none()
+    if not dialog:
+        dialog = Dialog(user_id=user.id)
+        session.add(dialog)
+        await session.flush()
+
+    return dialog, user
