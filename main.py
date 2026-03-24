@@ -5,14 +5,14 @@ import uuid
 from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Query
-from sqlalchemy import select
+from sqlalchemy import select, delete
 import aiofiles
 import numpy as np
 
 from database import async_session_maker
 from llm_service import ask_bot, translate_to_en
 from models import User, Dialog, Message, Document, DocumentChunk, Embedding
-from utils import extract_text, split_text, create_embedding
+from utils import extract_text, split_text, create_embedding, get_user_chat
 from sentence_transformers import SentenceTransformer
 
 # app = FastAPI()
@@ -221,4 +221,31 @@ async def show_docs(
                 }
                 for doc in documents
             ]
+        }
+
+
+@app.delete("/delete_doc/")
+async def delete_doc(
+        tg_id: str = Query(...),
+        username: str = Query(None),
+        doc_id: int = Query(...)
+):
+    async with async_session_maker() as session:
+        dialog, user = await get_user_chat(session, tg_id, username)
+
+        # Удаляем документ
+        result = await session.execute(
+            delete(Document).where(
+                Document.id == doc_id,
+                Document.dialog_id == dialog.id
+            )
+        )
+        await session.commit()
+
+        if result.rowcount == 0:
+            raise HTTPException(status_code=404, detail="Document not found")
+
+        return {
+            "success": True,
+            "message": "Document deleted"
         }
