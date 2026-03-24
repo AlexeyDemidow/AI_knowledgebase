@@ -56,26 +56,7 @@ async def add_document(
                 await buffer.write(content)
             file_size = os.path.getsize(file_path)
 
-            # 2️⃣ Получаем пользователя
-            result = await session.execute(select(User).where(User.tg_id == tg_id))
-            user = result.scalar_one_or_none()
-            if not user:
-                user = User(tg_id=tg_id, username=username)
-                session.add(user)
-                await session.flush()
-
-            # 3️⃣ Получаем диалог
-            result = await session.execute(
-                select(Dialog)
-                .where(Dialog.user_id == user.id)
-                .order_by(Dialog.created_at.desc())
-                .limit(1)
-            )
-            dialog = result.scalar_one_or_none()
-            if not dialog:
-                dialog = Dialog(user_id=user.id)
-                session.add(dialog)
-                await session.flush()
+            dialog = (await get_user_chat(session, tg_id, username))[0]
 
             # 4️⃣ Создаём документ
             doc = Document(
@@ -133,26 +114,7 @@ async def chat(data: dict):
     chat_mode = data.get("chat_mode", "chat")
 
     async with async_session_maker() as session:
-        # 1️⃣ Получаем пользователя
-        result = await session.execute(select(User).where(User.tg_id == tg_id))
-        user = result.scalar_one_or_none()
-        if not user:
-            user = User(tg_id=tg_id, username=username)
-            session.add(user)
-            await session.flush()
-
-        # 2️⃣ Получаем или создаем диалог
-        result = await session.execute(
-            select(Dialog)
-            .where(Dialog.user_id == user.id)
-            .order_by(Dialog.created_at.desc())
-            .limit(1)
-        )
-        dialog = result.scalar_one_or_none()
-        if not dialog:
-            dialog = Dialog(user_id=user.id)
-            session.add(dialog)
-            await session.flush()
+        dialog, user = await get_user_chat(session, tg_id, username)
 
         # 3️⃣ Сохраняем сообщение пользователя
         user_message = Message(dialog_id=dialog.id, role="user", text=message_text)
@@ -235,28 +197,7 @@ async def show_docs(
         username: str = Query(None)
 ):
     async with async_session_maker() as session:
-        # 1️⃣ Получаем пользователя
-        result = await session.execute(select(User).where(User.tg_id == tg_id))
-        user = result.scalar_one_or_none()
-
-        if not user:
-            user = User(tg_id=tg_id, username=username)
-            session.add(user)
-            await session.flush()
-
-        # 2️⃣ Получаем или создаем диалог
-        result = await session.execute(
-            select(Dialog)
-            .where(Dialog.user_id == user.id)
-            .order_by(Dialog.created_at.desc())
-            .limit(1)
-        )
-        dialog = result.scalar_one_or_none()
-
-        if not dialog:
-            dialog = Dialog(user_id=user.id)
-            session.add(dialog)
-            await session.flush()
+        dialog, user = await get_user_chat(session, tg_id, username)
 
         # 3️⃣ Получаем документы
         docs_result = await session.execute(
