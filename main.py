@@ -106,6 +106,10 @@ async def chat(data: dict):
     username = data.get("username")
     message_text = data.get("message")
     chat_mode = data.get("chat_mode", "chat")
+    doc_id = data.get("doc_id")
+
+    if not message_text:
+        return {"error": "Empty message"}
 
     async with async_session_maker() as session:
         dialog, user = await get_user_chat(session, tg_id, username)
@@ -116,29 +120,57 @@ async def chat(data: dict):
         await session.flush()
 
         if chat_mode == "document":
-            message_text_en = await translate_to_en(message_text)
-            query_embedding = create_embedding(message_text_en)
 
             # получаем все chunks и их embeddings
-            result = await session.execute(
-                select(DocumentChunk.text, Embedding.vector)
+            # 1️⃣ Получаем язык документа отдельно
+            doc_language = "ru"
+            if doc_id:
+                lang_result = await session.execute(
+                    select(Document.language).where(Document.id == int(doc_id))
+                )
+                doc_language = lang_result.scalar_one_or_none() or "ru"
+
+            # 2️⃣ Формируем запрос для chunk-ов
+            query = (
+                select(DocumentChunk.text, Embedding.vector, Document.language)
                 .join(Embedding, Embedding.chunk_id == DocumentChunk.id)
                 .join(Document, Document.id == DocumentChunk.document_id)
                 .where(Document.dialog_id == dialog.id)
             )
+
+            if doc_id:
+                query = query.where(Document.id == int(doc_id))
+
+            # 3️⃣ Выполняем запрос и получаем все результаты
+            result = await session.execute(query)
             chunks_vectors = result.all()
 
-            # считаем cosine similarity
-            def cosine_sim(a, b):
-                a, b = np.array(a), np.array(b)
-                return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
+            if doc_language == "en":
+                query_text = await translate_to_en(message_text)
+            else:
+                query_text = await translate_to_ru(message_text)
 
-            scored_chunks = [
-                (text, cosine_sim(vector, query_embedding))
-                for text, vector in chunks_vectors
-            ]
-            top_chunks = [text for text, _ in sorted(scored_chunks, key=lambda x: x[1], reverse=True)[:3]]
-            context = "\n\n".join(top_chunks)[:3000]
+            query_vector = create_embedding(query_text)
+
+            # считаем скоры
+            scored_chunks = []
+
+            for text, vector, _ in chunks_vectors:
+                score = cosine_sim(vector, query_vector)
+                scored_chunks.append((text, score))
+
+            if not scored_chunks:
+                context = ""
+            else:
+                top_chunks = [
+                    text for text, _ in sorted(
+                        scored_chunks,
+                        key=lambda x: x[1],
+                        reverse=True
+                    )[:3]
+                ]
+                context = "\n\n".join(top_chunks)[:3000]
+            print(context)
             # формируем prompt для модели
             messages = [
                 {
@@ -164,11 +196,16 @@ async def chat(data: dict):
                 .limit(20)
             )
             history = result.all()
-            messages = [{"role": role, "content": text} for role, text in reversed(history)]
+            messages = [{"role": role, "content": text} for role, text in reversed(history) if text]
             messages.insert(0, {"role": "system", "content": "You are helpful assistant."})
 
-        llm_answer = await ask_bot(messages)  # ask_bot должна возвращать строку
+        try:
+            llm_answer = await ask_bot(messages)
+        except Exception as e:
+            return {"error": f"LLM error: {str(e)}"}
 
+        if not llm_answer or not llm_answer.strip():
+            return {"error": "Empty response"}
         # сохраняем ответ
         assistant_message = Message(dialog_id=dialog.id, role="assistant", text=llm_answer)
         session.add(assistant_message)
