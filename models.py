@@ -57,6 +57,7 @@ class Document(Base):
     filename: Mapped[str]
     file_path: Mapped[str]
     file_size: Mapped[int]
+    language: Mapped[str]
 
     created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
