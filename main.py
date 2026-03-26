@@ -1,8 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from os.path import join, dirname
 import uuid
-from datetime import datetime
 
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Query
 from sqlalchemy import select, delete
@@ -10,20 +8,14 @@ import aiofiles
 import numpy as np
 
 from database import async_session_maker
-from llm_service import ask_bot, translate_to_en
-from models import User, Dialog, Message, Document, DocumentChunk, Embedding
-from utils import extract_text, split_text, create_embedding, get_user_chat
+from llm_service import ask_bot, translate_to_en, translate_to_ru
+from models import Message, Document, DocumentChunk, Embedding
+from utils import extract_text, split_text, create_embedding, get_user_chat, detect_lang, cosine_sim
 from sentence_transformers import SentenceTransformer
 
-# app = FastAPI()
 
 documents_folder = "documents/"
 os.makedirs(documents_folder, exist_ok=True)
-
-# @app.on_event("startup")
-# async def load_model():
-#     global model
-#     model = SentenceTransformer("all-MiniLM-L6-v2")
 
 
 @asynccontextmanager
@@ -55,6 +47,7 @@ async def add_document(
                 content = await file.read()
                 await buffer.write(content)
             file_size = os.path.getsize(file_path)
+            file_text = extract_text(file_path)
 
             dialog = (await get_user_chat(session, tg_id, username))[0]
 
@@ -64,6 +57,7 @@ async def add_document(
                 file_path=file_path,
                 file_size=file_size,
                 dialog_id=dialog.id,
+                language=detect_lang(file_text[:1000])
             )
             session.add(doc)
             await session.commit()
