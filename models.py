@@ -96,6 +96,8 @@ class Embedding(Base):
     chunk_id: Mapped[int] = mapped_column(ForeignKey("document_chunks.id"))
 
     vector: Mapped[list[float]] = mapped_column(Vector(384))
+
+    chunk: Mapped["DocumentChunk"] = relationship(back_populates="embeddings")
 #
 # class QueryHistory(Base):
 #     pass
