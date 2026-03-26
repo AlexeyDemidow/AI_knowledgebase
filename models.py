@@ -27,7 +27,7 @@ class Dialog(Base):
     __tablename__ = "dialogs"
     id: Mapped[int_pk]
 
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    user_id = mapped_column(ForeignKey("users.id", ondelete="CASCADE"))
     created_at: Mapped[datetime] = mapped_column(server_default=sql_text("now()"))
 
     user: Mapped["User"] = relationship(back_populates="dialogs")
