@@ -42,3 +42,12 @@ async def translate_to_en(text: str):
     ]
 
     return await ask_bot(messages)
+
+
+async def translate_to_ru(text: str):
+    messages = [
+        {"role": "system", "content": "Translate to Russian"},
+        {"role": "user", "content": text}
+    ]
+
+    return await ask_bot(messages)
