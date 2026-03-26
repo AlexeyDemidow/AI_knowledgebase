@@ -65,9 +65,15 @@ async def get_user_chat(session, tg_id, username):
 
     return dialog, user
 
+
 def detect_lang(text: str) -> str:
     try:
         print(text)
         return detect(text[:1000])
     except:
         return "unknown"
+
+
+def cosine_sim(a, b):
+    a, b = np.array(a), np.array(b)
+    return np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b))
