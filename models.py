@@ -64,6 +64,11 @@ class Document(Base):
 
     dialog: Mapped["Dialog"] = relationship(back_populates="documents")
 
+    chunks: Mapped[list["DocumentChunk"]] = relationship(
+        back_populates="document",
+        cascade="all, delete-orphan"
+    )
+
 
 class DocumentChunk(Base):
     __tablename__ = "document_chunks"
