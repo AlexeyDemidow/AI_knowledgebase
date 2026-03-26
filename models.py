@@ -81,6 +81,8 @@ class DocumentChunk(Base):
     text: Mapped[str]
     chunk_index: Mapped[int]
 
+    document: Mapped["Document"] = relationship(back_populates="chunks")
+
 
 class Embedding(Base):
     __tablename__ = "embeddings"
