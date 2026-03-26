@@ -93,7 +93,9 @@ class Embedding(Base):
     __tablename__ = "embeddings"
 
     id: Mapped[int_pk]
-    chunk_id: Mapped[int] = mapped_column(ForeignKey("document_chunks.id"))
+    chunk_id: Mapped[int] = mapped_column(
+        ForeignKey("document_chunks.id", ondelete="CASCADE")
+    )
 
     vector: Mapped[list[float]] = mapped_column(Vector(384))
 
