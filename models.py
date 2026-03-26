@@ -83,6 +83,11 @@ class DocumentChunk(Base):
 
     document: Mapped["Document"] = relationship(back_populates="chunks")
 
+    embeddings: Mapped[list["Embedding"]] = relationship(
+        back_populates="chunk",
+        cascade="all, delete-orphan"
+    )
+
 
 class Embedding(Base):
     __tablename__ = "embeddings"
