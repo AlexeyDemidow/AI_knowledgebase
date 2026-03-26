@@ -51,8 +51,9 @@ class Message(Base):
 
 class Document(Base):
     __tablename__ = "documents"
+
     id: Mapped[int_pk]
-    dialog_id: Mapped[int] = mapped_column(ForeignKey("dialogs.id"))
+    dialog_id: Mapped[int] = mapped_column(ForeignKey("dialogs.id", ondelete="CASCADE"))
 
     filename: Mapped[str]
     file_path: Mapped[str]
