@@ -1,3 +1,5 @@
+import numpy as np
+from langdetect import detect
 from pypdf import PdfReader
 from docx import Document as DocxDocument
 
@@ -34,6 +36,7 @@ def split_text(text, chunk_size=800):
 
 
 model = SentenceTransformer("all-MiniLM-L6-v2")
+# model = SentenceTransformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 def create_embedding(text):
     return model.encode(text).tolist()
@@ -61,3 +64,10 @@ async def get_user_chat(session, tg_id, username):
         await session.flush()
 
     return dialog, user
+
+def detect_lang(text: str) -> str:
+    try:
+        print(text)
+        return detect(text[:1000])
+    except:
+        return "unknown"
