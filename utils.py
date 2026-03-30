@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 from langdetect import detect
 from pypdf import PdfReader
@@ -6,7 +8,7 @@ from docx import Document as DocxDocument
 from sentence_transformers import SentenceTransformer
 from sqlalchemy import select
 
-from models import Dialog, User
+from models import Dialog, User, Document, DocumentChunk, Embedding
 
 
 def extract_text(file_path: str) -> str:
@@ -64,6 +66,48 @@ async def get_user_chat(session, tg_id, username):
         await session.flush()
 
     return dialog, user
+
+
+async def process_file(file_path, original_filename, tg_id, username, session):
+    file_size = os.path.getsize(file_path)
+    file_text = extract_text(file_path)
+
+    dialog = (await get_user_chat(session, tg_id, username))[0]
+
+    doc = Document(
+        filename=original_filename,
+        file_path=file_path,
+        file_size=file_size,
+        dialog_id=dialog.id,
+        language=detect_lang(file_text[:1000])
+    )
+
+    session.add(doc)
+    await session.commit()
+    await session.refresh(doc)
+
+    # 5️⃣ Извлекаем текст и создаем chunks + embeddings
+    chunks = split_text(file_text)
+
+    for i, chunk in enumerate(chunks):
+        doc_chunk = DocumentChunk(
+            document_id=doc.id,
+            text=chunk,
+            chunk_index=i,
+        )
+        session.add(doc_chunk)
+        await session.flush()
+
+        vector = create_embedding(chunk)
+        embedding = Embedding(
+            chunk_id=doc_chunk.id,
+            vector=vector,
+        )
+        session.add(embedding)
+
+    await session.commit()
+
+    return doc
 
 
 def detect_lang(text: str) -> str:
