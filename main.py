@@ -187,7 +187,6 @@ async def chat(data: dict):
                     )[:3]
                 ]
                 context = "\n\n".join(top_chunks)[:3000]
-            print(context)
             # формируем prompt для модели
             messages = [
                 {
