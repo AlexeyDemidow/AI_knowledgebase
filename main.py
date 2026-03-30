@@ -2,15 +2,17 @@ import os
 from contextlib import asynccontextmanager
 import uuid
 
+import httpx
 from fastapi import FastAPI, HTTPException, Form, UploadFile, File, Query
 from sqlalchemy import select, delete
 import aiofiles
 import numpy as np
+from urllib.parse import urlparse
 
 from database import async_session_maker
 from llm_service import ask_bot, translate_to_en, translate_to_ru
 from models import Message, Document, DocumentChunk, Embedding
-from utils import extract_text, split_text, create_embedding, get_user_chat, detect_lang, cosine_sim
+from utils import extract_text, split_text, create_embedding, get_user_chat, detect_lang, cosine_sim, process_file
 from sentence_transformers import SentenceTransformer
 
 
@@ -41,49 +43,14 @@ async def add_document(
     async with async_session_maker() as session:
         try:
             # 1️⃣ Сохраняем файл
+            original_filename = file.filename
             unique_name = f"{uuid.uuid4()}_{file.filename}"
             file_path = os.path.join(documents_folder, unique_name)
             async with aiofiles.open(file_path, "wb") as buffer:
                 content = await file.read()
                 await buffer.write(content)
-            file_size = os.path.getsize(file_path)
-            file_text = extract_text(file_path)
 
-            dialog = (await get_user_chat(session, tg_id, username))[0]
-
-            # 4️⃣ Создаём документ
-            doc = Document(
-                filename=file.filename,
-                file_path=file_path,
-                file_size=file_size,
-                dialog_id=dialog.id,
-                language=detect_lang(file_text[:1000])
-            )
-            session.add(doc)
-            await session.commit()
-            await session.refresh(doc)
-
-            # 5️⃣ Извлекаем текст и создаем chunks + embeddings
-            text = extract_text(file_path)
-            chunks = split_text(text)
-
-            for i, chunk in enumerate(chunks):
-                doc_chunk = DocumentChunk(
-                    document_id=doc.id,
-                    text=chunk,
-                    chunk_index=i,
-                )
-                session.add(doc_chunk)
-                await session.flush()
-
-                vector = create_embedding(chunk)
-                embedding = Embedding(
-                    chunk_id=doc_chunk.id,
-                    vector=vector,
-                )
-                session.add(embedding)
-
-            await session.commit()
+            doc = await process_file(file_path, original_filename, tg_id, username, session)
 
             return {
                 "success": True,
@@ -93,6 +60,56 @@ async def add_document(
                 "file_size": doc.file_size,
                 "dialog_id": doc.dialog_id,
                 "created_at": doc.created_at,
+            }
+
+        except Exception as e:
+            await session.rollback()
+            return {"success": False, "errorMsg": str(e)}
+
+
+@app.post("/add_document_by_url/")
+async def add_document_by_url(
+    tg_id: str = Form(...),
+    username: str = Form(...),
+    file_url: str = Form(...),
+):
+    if not file_url.startswith("http"):
+        raise ValueError("Invalid URL")
+
+    async with async_session_maker() as session:
+        try:
+            parsed = urlparse(file_url)
+            original_filename = os.path.basename(parsed.path) or "file"
+            unique_name = f"{uuid.uuid4()}_{original_filename}"
+            file_path = os.path.join(documents_folder, unique_name)
+
+            async with httpx.AsyncClient(timeout=30.0) as client:
+                async with client.stream("GET", file_url) as response:
+                    response.raise_for_status()
+
+                    content_type = response.headers.get("content-type", "")
+
+                    if "text/html" in content_type:
+                        raise ValueError("URL does not point to a file")
+
+                    total_size = 0
+                    max_size = 10 * 1024 * 1024  # 10MB
+
+                    with open(file_path, "wb") as f:
+                        async for chunk in response.aiter_bytes():
+                            total_size += len(chunk)
+
+                            if total_size > max_size:
+                                raise ValueError("File too large")
+
+                            f.write(chunk)
+
+            doc = await process_file(file_path, original_filename, tg_id, username, session)
+
+            return {
+                "success": True,
+                "id": doc.id,
+                "filename": doc.filename,
             }
 
         except Exception as e:
